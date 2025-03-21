@@ -108,8 +108,22 @@ if st.sidebar.button("Veri Çek ve Tahmin Et"):
             st.error("Veri alınamadı. Lütfen internet bağlantınızı kontrol edin veya başka bir kripto para deneyin.")
 
 # Auto refresh data toggle
-auto_refresh = st.sidebar.checkbox("Otomatik veri yenileme", value=False)
-refresh_interval = st.sidebar.slider("Yenileme aralığı (dakika)", 1, 60, 5)
+st.sidebar.markdown("---")
+st.sidebar.subheader("Otomatik Veri Yenileme")
+auto_refresh = st.sidebar.toggle("Otomatik yenilemeyi etkinleştir", value=False)
+refresh_interval = st.sidebar.slider("Yenileme aralığı (dakika)", 1, 60, 5, disabled=not auto_refresh)
+
+if auto_refresh:
+    st.sidebar.info(f"Veriler her {refresh_interval} dakikada bir yenilenecektir.")
+    
+    # Calculate and display the next refresh time
+    if 'last_updated' in st.session_state:
+        next_refresh = st.session_state['last_updated'] + timedelta(minutes=refresh_interval)
+        time_to_refresh = next_refresh - datetime.now()
+        minutes, seconds = divmod(max(0, time_to_refresh.total_seconds()), 60)
+        st.sidebar.caption(f"Sonraki yenileme: {int(minutes)} dakika {int(seconds)} saniye içinde")
+else:
+    st.sidebar.caption("Otomatik veri yenileme kapalı")
 
 # Explanation section
 with st.sidebar.expander("Geri Bildirim Döngüsü Hakkında"):
@@ -421,28 +435,54 @@ with tab3:
         else:
             st.info("Henüz tahmin geçmişi bulunmamaktadır. Tahminler yaptıkça burada görüntülenecektir.")
 
-# Auto-refresh functionality
+# Auto-refresh functionality - improved implementation
 if auto_refresh and 'symbol' in st.session_state:
-    # Calculate time since last update
+    # Calculate time since last update if it exists
+    current_time = datetime.now()
+    needs_refresh = False
+    
     if 'last_updated' in st.session_state:
-        time_diff = (datetime.now() - st.session_state['last_updated']).total_seconds() / 60
+        time_diff = (current_time - st.session_state['last_updated']).total_seconds() / 60
         if time_diff >= refresh_interval:
-            st.warning("Auto-refreshing data...")
-            # Fetch and process data
-            df = predictor.fetch_and_process_data(st.session_state['symbol'], selected_interval, selected_limit)
-            
-            if df is not None and not df.empty:
-                st.session_state['df'] = df
-                st.session_state['last_updated'] = datetime.now()
+            needs_refresh = True
+    else:
+        # If no last_updated is set, we should refresh
+        needs_refresh = True
+    
+    # Only show the refresh message and perform operations if needed
+    if needs_refresh:
+        with st.spinner(f"Veriler yenileniyor... ({refresh_interval} dakikalık otomatik yenileme)"):
+            try:
+                # Fetch and process data
+                df = predictor.fetch_and_process_data(st.session_state['symbol'], selected_interval, selected_limit)
                 
-                # Make predictions
-                hourly_pred, daily_pred = predictor.make_predictions(df, st.session_state['symbol'])
-                
-                if hourly_pred is not None and daily_pred is not None:
-                    st.session_state['hourly_pred'] = hourly_pred
-                    st.session_state['daily_pred'] = daily_pred
-                    st.session_state['has_prediction'] = True
-                    st.rerun()
+                if df is not None and not df.empty:
+                    # Update session state
+                    st.session_state['df'] = df
+                    st.session_state['last_updated'] = current_time
+                    
+                    # Make predictions
+                    with st.spinner("Tahminler güncelleniyor..."):
+                        hourly_pred, daily_pred = predictor.make_predictions(df, st.session_state['symbol'])
+                        
+                        if hourly_pred is not None and daily_pred is not None:
+                            st.session_state['hourly_pred'] = hourly_pred
+                            st.session_state['daily_pred'] = daily_pred
+                            st.session_state['has_prediction'] = True
+                            
+                            # Only add a small visual indicator that data was refreshed
+                            st.success(f"Veriler başarıyla yenilendi: {current_time.strftime('%H:%M:%S')}")
+                            
+                            # Rerun the app to display new data
+                            time.sleep(1)  # Brief pause to allow user to see the success message
+                            st.rerun()
+                        else:
+                            st.error("Tahminler güncellenirken bir hata oluştu.")
+                else:
+                    st.error("Veri yenilenirken bir sorun oluştu. Bağlantınızı kontrol edin.")
+            except Exception as e:
+                st.error(f"Otomatik yenileme sırasında bir hata oluştu: {str(e)}")
+                # Don't update last_updated time if there was an error, so it will try again next time
 
 # Footer
 st.markdown("---")
