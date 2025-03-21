@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import time
+import requests
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 from crypto_predictor import CryptoPredictor
@@ -62,7 +63,6 @@ interval_options = {
     "30 Dakika": "30m",
     "1 Saat": "1h",
     "4 Saat": "4h",
-    "12 Saat": "12h",
     "1 Gün": "1d",
     "1 Hafta": "1w"
 }
@@ -149,6 +149,28 @@ with col1:
     else:
         st.info("Fiyat grafiği ve tahminleri görmek için lütfen veri çekin.")
 
+# Connection status indicator 
+conn_status_col, conn_text_col, dummy_col = st.columns([0.5, 3, 17])
+with conn_status_col:
+    try:
+        # Check connection by making a simple request to CoinGecko
+        response = requests.get('https://api.coingecko.com/api/v3/ping', timeout=5)
+        if response.status_code == 200:
+            st.markdown('<div style="width:15px;height:15px;border-radius:50%;background-color:green;margin-top:5px;"></div>', unsafe_allow_html=True)
+            connection_ok = True
+        else:
+            st.markdown('<div style="width:15px;height:15px;border-radius:50%;background-color:red;margin-top:5px;"></div>', unsafe_allow_html=True)
+            connection_ok = False
+    except:
+        st.markdown('<div style="width:15px;height:15px;border-radius:50%;background-color:red;margin-top:5px;"></div>', unsafe_allow_html=True)
+        connection_ok = False
+
+with conn_text_col:
+    if connection_ok:
+        st.markdown("<span style='color:green;font-size:0.8em;'>Bağlantı Aktif</span>", unsafe_allow_html=True)
+    else:
+        st.markdown("<span style='color:red;font-size:0.8em;'>Bağlantı Yok</span>", unsafe_allow_html=True)
+
 with col2:
     # Display current data and predictions
     st.subheader("Güncel Veri ve Tahminler")
@@ -156,26 +178,63 @@ with col2:
     if 'df' in st.session_state and 'has_prediction' in st.session_state and st.session_state['has_prediction']:
         # Display current price
         current_price = st.session_state['df']['close'].iloc[-1]
+        
+        # Format price with appropriate decimal places
+        if current_price < 2:
+            price_format = f"${current_price:.4f}"
+        else:
+            price_format = f"${current_price:.2f}"
+            
         st.metric(
             label=f"Güncel {selected_crypto_name} Fiyatı",
-            value=f"${current_price:.2f}"
+            value=price_format
         )
         
         # Display hourly prediction
         hourly_pred = st.session_state['hourly_pred']
         hourly_change = (hourly_pred - current_price) / current_price * 100
+        
+        # Format prediction with appropriate decimal places
+        if hourly_pred < 2:
+            hourly_format = f"${hourly_pred:.4f}"
+        else:
+            hourly_format = f"${hourly_pred:.2f}"
+        
         st.metric(
             label="1 Saat Tahmini",
-            value=f"${hourly_pred:.2f}",
+            value=hourly_format,
             delta=f"{hourly_change:.2f}%"
+        )
+        
+        # Display 12-hour prediction (average between hourly and daily)
+        twelve_hour_pred = (hourly_pred + 11*((daily_pred - hourly_pred)/23)) 
+        twelve_hour_change = (twelve_hour_pred - current_price) / current_price * 100
+        
+        # Format 12-hour prediction with appropriate decimal places
+        if twelve_hour_pred < 2:
+            twelve_hour_format = f"${twelve_hour_pred:.4f}"
+        else:
+            twelve_hour_format = f"${twelve_hour_pred:.2f}"
+            
+        st.metric(
+            label="12 Saat Tahmini",
+            value=twelve_hour_format,
+            delta=f"{twelve_hour_change:.2f}%"
         )
         
         # Display daily prediction
         daily_pred = st.session_state['daily_pred']
         daily_change = (daily_pred - current_price) / current_price * 100
+        
+        # Format daily prediction with appropriate decimal places
+        if daily_pred < 2:
+            daily_format = f"${daily_pred:.4f}"
+        else:
+            daily_format = f"${daily_pred:.2f}"
+            
         st.metric(
             label="24 Saat Tahmini",
-            value=f"${daily_pred:.2f}",
+            value=daily_format,
             delta=f"{daily_change:.2f}%"
         )
         
@@ -266,7 +325,6 @@ with tab3:
         
         if predictions:
             # Convert to DataFrame for better display
-            import pandas as pd
             pred_df = pd.DataFrame(predictions)
             
             # Format timestamp
@@ -275,33 +333,89 @@ with tab3:
             
             # Create a clean view with only the relevant columns
             if len(pred_df) > 0:
+                # Apply correct decimal formatting based on price value
+                for col in ['actual_price', 'hourly_pred', 'daily_pred', 'hourly_actual', 'daily_actual']:
+                    if col in pred_df.columns:
+                        pred_df[col + '_formatted'] = pred_df[col].apply(
+                            lambda x: f"${x:.4f}" if x < 2 else f"${x:.2f}" if pd.notna(x) else None
+                        )
+                
+                # Create styled dataframe with visual indicators
                 display_df = pd.DataFrame()
                 display_df['Tarih'] = pred_df['tarih']
-                display_df['Gerçek Fiyat'] = pred_df['actual_price'].round(2)
-                display_df['1 Saat Tahmini'] = pred_df['hourly_pred'].round(2)
+                display_df['Gerçek Fiyat'] = pred_df['actual_price_formatted']
                 
-                # Add hourly actual prices and accuracy if available
-                if 'hourly_actual' in pred_df.columns:
-                    has_hourly_actual = pred_df['hourly_actual'].notna()
-                    display_df.loc[has_hourly_actual, '1 Saat Sonraki Fiyat'] = pred_df.loc[has_hourly_actual, 'hourly_actual'].round(2)
+                # Hourly prediction section
+                display_df['1 Saat Tahmini'] = pred_df['hourly_pred_formatted']
+                
+                # Add hourly actual prices and accuracy with visual indicators
+                if 'hourly_actual' in pred_df.columns and 'hourly_pred' in pred_df.columns:
+                    hourly_actual = pred_df['hourly_actual']
+                    hourly_pred = pred_df['hourly_pred']
+                    has_hourly_data = hourly_actual.notna() & hourly_pred.notna()
                     
-                    if 'hourly_accuracy' in pred_df.columns:
-                        has_hourly_acc = pred_df['hourly_accuracy'].notna()
-                        display_df.loc[has_hourly_acc, '1 Saat Doğruluk'] = (pred_df.loc[has_hourly_acc, 'hourly_accuracy'] * 100).round(2).astype(str) + '%'
-                
-                display_df['24 Saat Tahmini'] = pred_df['daily_pred'].round(2)
-                
-                # Add daily actual prices and accuracy if available
-                if 'daily_actual' in pred_df.columns:
-                    has_daily_actual = pred_df['daily_actual'].notna()
-                    display_df.loc[has_daily_actual, '24 Saat Sonraki Fiyat'] = pred_df.loc[has_daily_actual, 'daily_actual'].round(2)
+                    # Initialize columns
+                    display_df['1 Saat Sonraki Fiyat'] = pred_df.loc[hourly_actual.notna(), 'hourly_actual_formatted']
                     
-                    if 'daily_accuracy' in pred_df.columns:
-                        has_daily_acc = pred_df['daily_accuracy'].notna()
-                        display_df.loc[has_daily_acc, '24 Saat Doğruluk'] = (pred_df.loc[has_daily_acc, 'daily_accuracy'] * 100).round(2).astype(str) + '%'
+                    # Add visual indicators for prediction accuracy
+                    display_df['1S Doğruluk'] = ""
+                    
+                    # For rows with both actual and predicted values
+                    for idx in pred_df.index[has_hourly_data]:
+                        actual = hourly_actual[idx]
+                        pred = hourly_pred[idx]
+                        
+                        if actual > pred:
+                            # Actual higher than predicted (prediction was too low)
+                            display_df.loc[idx, '1S Doğruluk'] = f"🔴 {((actual - pred) / actual * 100):.1f}% Düşük"
+                        elif actual < pred:
+                            # Actual lower than predicted (prediction was too high)
+                            display_df.loc[idx, '1S Doğruluk'] = f"🔵 {((pred - actual) / actual * 100):.1f}% Yüksek"
+                        else:
+                            # Perfect prediction (unlikely but possible)
+                            display_df.loc[idx, '1S Doğruluk'] = "✅ Tam Doğru"
+                
+                # Daily prediction section
+                display_df['24 Saat Tahmini'] = pred_df['daily_pred_formatted']
+                
+                # Add daily actual prices and accuracy with visual indicators
+                if 'daily_actual' in pred_df.columns and 'daily_pred' in pred_df.columns:
+                    daily_actual = pred_df['daily_actual']
+                    daily_pred = pred_df['daily_pred']
+                    has_daily_data = daily_actual.notna() & daily_pred.notna()
+                    
+                    # Initialize columns
+                    display_df['24 Saat Sonraki Fiyat'] = pred_df.loc[daily_actual.notna(), 'daily_actual_formatted']
+                    
+                    # Add visual indicators for prediction accuracy
+                    display_df['24S Doğruluk'] = ""
+                    
+                    # For rows with both actual and predicted values
+                    for idx in pred_df.index[has_daily_data]:
+                        actual = daily_actual[idx]
+                        pred = daily_pred[idx]
+                        
+                        if actual > pred:
+                            # Actual higher than predicted (prediction was too low)
+                            display_df.loc[idx, '24S Doğruluk'] = f"🔴 {((actual - pred) / actual * 100):.1f}% Düşük"
+                        elif actual < pred:
+                            # Actual lower than predicted (prediction was too high)
+                            display_df.loc[idx, '24S Doğruluk'] = f"🔵 {((pred - actual) / actual * 100):.1f}% Yüksek"
+                        else:
+                            # Perfect prediction (unlikely but possible)
+                            display_df.loc[idx, '24S Doğruluk'] = "✅ Tam Doğru"
                 
                 # Display the table with most recent predictions first
                 st.dataframe(display_df.sort_values('Tarih', ascending=False), use_container_width=True)
+                
+                # Show legend
+                st.markdown("""
+                **Doğruluk Göstergeleri:**
+                - 🔴 Düşük: Gerçek fiyat tahmin edilenden daha yüksek çıktı
+                - 🔵 Yüksek: Gerçek fiyat tahmin edilenden daha düşük çıktı
+                - ✅ Tam Doğru: Tahmin gerçek fiyata eşit
+                """)
+                
             else:
                 st.info("Geçmiş tahmin bulunamadı.")
         else:
