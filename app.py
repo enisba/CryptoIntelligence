@@ -39,7 +39,17 @@ crypto_options = {
     "Dogecoin": "DOGEUSDT",
     "Polkadot": "DOTUSDT",
     "Avalanche": "AVAXUSDT",
-    "Chainlink": "LINKUSDT"
+    "Chainlink": "LINKUSDT",
+    "Litecoin": "LTCUSDT",
+    "Polygon": "MATICUSDT",
+    "Uniswap": "UNIUSDT",
+    "Stellar": "XLMUSDT",
+    "Cosmos": "ATOMUSDT",
+    "Tron": "TRXUSDT",
+    "Monero": "XMRUSDT",
+    "EOS": "EOSUSDT",
+    "VeChain": "VETUSDT",
+    "Algorand": "ALGOUSDT"
 }
 selected_crypto_name = st.sidebar.selectbox("Kripto Para Seçin", list(crypto_options.keys()))
 selected_crypto = crypto_options[selected_crypto_name]
@@ -52,6 +62,7 @@ interval_options = {
     "30 Dakika": "30m",
     "1 Saat": "1h",
     "4 Saat": "4h",
+    "12 Saat": "12h",
     "1 Gün": "1d",
     "1 Hafta": "1w"
 }
@@ -174,69 +185,127 @@ with col2:
     else:
         st.info("Güncel fiyat ve tahminleri görmek için lütfen veri çekin.")
 
+# Create tabs for different sections
+tab1, tab2, tab3 = st.tabs(["Teknik Göstergeler", "Tahmin Doğruluğu", "Tahmin Geçmişi"])
+
 # Technical indicators tab
-st.subheader("Technical Indicators")
-if 'df' in st.session_state:
-    # Technical indicators chart
-    tech_chart = predictor.create_technical_charts(st.session_state['df'])
-    if tech_chart is not None:
-        st.plotly_chart(tech_chart, use_container_width=True)
+with tab1:
+    st.subheader("Teknik Göstergeler")
+    if 'df' in st.session_state:
+        # Technical indicators chart
+        tech_chart = predictor.create_technical_charts(st.session_state['df'])
+        if tech_chart is not None:
+            st.plotly_chart(tech_chart, use_container_width=True)
+        else:
+            st.warning("Teknik gösterge grafikleri oluşturulamadı.")
     else:
-        st.warning("Failed to create technical indicators chart.")
-else:
-    st.info("Please fetch data to see technical indicators.")
+        st.info("Teknik göstergeleri görmek için lütfen veri çekin.")
 
 # Prediction accuracy tab
-st.subheader("Prediction Accuracy & History")
-if 'symbol' in st.session_state:
-    # Get accuracy metrics
-    accuracy_metrics = predictor.get_prediction_accuracy(st.session_state['symbol'])
-    
-    # Display metrics
-    if accuracy_metrics['sample_size'] > 0:
-        col1, col2, col3 = st.columns(3)
+with tab2:
+    st.subheader("Tahmin Doğruluğu")
+    if 'symbol' in st.session_state:
+        # Get accuracy metrics
+        accuracy_metrics = predictor.get_prediction_accuracy(st.session_state['symbol'])
         
-        with col1:
-            hourly_acc = accuracy_metrics.get('hourly_accuracy')
-            if hourly_acc is not None:
+        # Display metrics
+        if accuracy_metrics['sample_size'] > 0:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                hourly_acc = accuracy_metrics.get('hourly_accuracy')
+                if hourly_acc is not None:
+                    st.metric(
+                        label="Saatlik Tahmin Doğruluğu",
+                        value=f"{hourly_acc*100:.2f}%"
+                    )
+                else:
+                    st.metric(label="Saatlik Tahmin Doğruluğu", value="Veri yok")
+            
+            with col2:
+                daily_acc = accuracy_metrics.get('daily_accuracy')
+                if daily_acc is not None:
+                    st.metric(
+                        label="Günlük Tahmin Doğruluğu",
+                        value=f"{daily_acc*100:.2f}%"
+                    )
+                else:
+                    st.metric(label="Günlük Tahmin Doğruluğu", value="Veri yok")
+            
+            with col3:
                 st.metric(
-                    label="Hourly Prediction Accuracy",
-                    value=f"{hourly_acc*100:.2f}%"
+                    label="Doğrulanmış Tahminler",
+                    value=str(accuracy_metrics['sample_size'])
                 )
-            else:
-                st.metric(label="Hourly Prediction Accuracy", value="No data")
-        
-        with col2:
-            daily_acc = accuracy_metrics.get('daily_accuracy')
-            if daily_acc is not None:
-                st.metric(
-                    label="Daily Prediction Accuracy",
-                    value=f"{daily_acc*100:.2f}%"
-                )
-            else:
-                st.metric(label="Daily Prediction Accuracy", value="No data")
-        
-        with col3:
-            st.metric(
-                label="Verified Predictions",
-                value=str(accuracy_metrics['sample_size'])
-            )
-        
-        # Accuracy charts
-        accuracy_chart, hourly_compare, daily_compare = predictor.create_accuracy_charts(st.session_state['symbol'])
-        
-        if accuracy_chart is not None:
-            st.plotly_chart(accuracy_chart, use_container_width=True)
-        
-        if hourly_compare is not None:
-            st.plotly_chart(hourly_compare, use_container_width=True)
-        
-        if daily_compare is not None:
-            st.plotly_chart(daily_compare, use_container_width=True)
+            
+            # Accuracy charts
+            accuracy_chart, hourly_compare, daily_compare = predictor.create_accuracy_charts(st.session_state['symbol'])
+            
+            if accuracy_chart is not None:
+                st.plotly_chart(accuracy_chart, use_container_width=True)
+            
+            if hourly_compare is not None:
+                st.plotly_chart(hourly_compare, use_container_width=True)
+            
+            if daily_compare is not None:
+                st.plotly_chart(daily_compare, use_container_width=True)
+        else:
+            st.info("Henüz doğrulanmış tahmin yok. Doğruluk metriklerini hesaplamak için sistem gerçek fiyat verilerini toplamalıdır.")
     else:
-        st.info("No verified predictions yet. The system needs to collect actual price data before calculating accuracy.")
-else:
-    st.info("Please fetch data to see prediction accuracy metrics and history.")
+        st.info("Tahmin doğruluğu metriklerini ve geçmişini görmek için lütfen veri çekin.")
+
+# Prediction history tab
+with tab3:
+    st.subheader("Tahmin Geçmişi")
+    if 'symbol' in st.session_state:
+        # Update actual prices first
+        predictor.data_handler.update_actual_prices(st.session_state['symbol'])
+        
+        # Get prediction history
+        predictions = predictor.data_handler.get_predictions_history(st.session_state['symbol'])
+        
+        if predictions:
+            # Convert to DataFrame for better display
+            import pandas as pd
+            pred_df = pd.DataFrame(predictions)
+            
+            # Format timestamp
+            if 'timestamp' in pred_df.columns:
+                pred_df['tarih'] = pd.to_datetime(pred_df['timestamp']).dt.strftime('%Y-%m-%d %H:%M')
+            
+            # Create a clean view with only the relevant columns
+            if len(pred_df) > 0:
+                display_df = pd.DataFrame()
+                display_df['Tarih'] = pred_df['tarih']
+                display_df['Gerçek Fiyat'] = pred_df['actual_price'].round(2)
+                display_df['1 Saat Tahmini'] = pred_df['hourly_pred'].round(2)
+                
+                # Add hourly actual prices and accuracy if available
+                if 'hourly_actual' in pred_df.columns:
+                    has_hourly_actual = pred_df['hourly_actual'].notna()
+                    display_df.loc[has_hourly_actual, '1 Saat Sonraki Fiyat'] = pred_df.loc[has_hourly_actual, 'hourly_actual'].round(2)
+                    
+                    if 'hourly_accuracy' in pred_df.columns:
+                        has_hourly_acc = pred_df['hourly_accuracy'].notna()
+                        display_df.loc[has_hourly_acc, '1 Saat Doğruluk'] = (pred_df.loc[has_hourly_acc, 'hourly_accuracy'] * 100).round(2).astype(str) + '%'
+                
+                display_df['24 Saat Tahmini'] = pred_df['daily_pred'].round(2)
+                
+                # Add daily actual prices and accuracy if available
+                if 'daily_actual' in pred_df.columns:
+                    has_daily_actual = pred_df['daily_actual'].notna()
+                    display_df.loc[has_daily_actual, '24 Saat Sonraki Fiyat'] = pred_df.loc[has_daily_actual, 'daily_actual'].round(2)
+                    
+                    if 'daily_accuracy' in pred_df.columns:
+                        has_daily_acc = pred_df['daily_accuracy'].notna()
+                        display_df.loc[has_daily_acc, '24 Saat Doğruluk'] = (pred_df.loc[has_daily_acc, 'daily_accuracy'] * 100).round(2).astype(str) + '%'
+                
+                # Display the table with most recent predictions first
+                st.dataframe(display_df.sort_values('Tarih', ascending=False), use_container_width=True)
+            else:
+                st.info("Geçmiş tahmin bulunamadı.")
+        else:
+            st.info("Henüz tahmin geçmişi bulunmamaktadır. Tahminler yaptıkça burada görüntülenecektir.")
 
 # Auto-refresh functionality
 if auto_refresh and 'symbol' in st.session_state:
@@ -263,5 +332,5 @@ if auto_refresh and 'symbol' in st.session_state:
 
 # Footer
 st.markdown("---")
-st.markdown("Cryptocurrency Price Predictor with Feedback Loop Learning System")
-st.markdown("Data provided by Binance API")
+st.markdown("Kripto Para Fiyat Tahmincisi - Geri Bildirim Döngüsü Öğrenme Sistemi")
+st.markdown("Veriler CoinGecko API tarafından sağlanmaktadır")

@@ -25,7 +25,17 @@ class DataHandler:
             "DOGEUSDT": "dogecoin",
             "DOTUSDT": "polkadot",
             "AVAXUSDT": "avalanche-2",
-            "LINKUSDT": "chainlink"
+            "LINKUSDT": "chainlink",
+            "LTCUSDT": "litecoin",
+            "MATICUSDT": "matic-network",
+            "UNIUSDT": "uniswap",
+            "XLMUSDT": "stellar",
+            "ATOMUSDT": "cosmos",
+            "TRXUSDT": "tron",
+            "XMRUSDT": "monero",
+            "EOSUSDT": "eos",
+            "VETUSDT": "vechain",
+            "ALGOUSDT": "algorand"
         }
         
         # Create storage file if it doesn't exist
@@ -95,8 +105,10 @@ class DataHandler:
             return None
             
         try:
-            # RSI
-            df["RSI"] = ta.rsi(df["close"], length=14)
+            # RSI with different periods
+            df["RSI_14"] = ta.rsi(df["close"], length=14)
+            df["RSI_7"] = ta.rsi(df["close"], length=7)
+            df["RSI_28"] = ta.rsi(df["close"], length=28)
             
             # MACD
             macd = ta.macd(df["close"], fast=12, slow=26)
@@ -110,12 +122,30 @@ class DataHandler:
             df["BB_mid"] = bbands["BBM_20_2.0"]
             df["BB_low"] = bbands["BBL_20_2.0"]
             
-            # Moving Averages
+            # Moving Averages - multiple periods
             df["SMA_20"] = ta.sma(df["close"], length=20)
+            df["SMA_50"] = ta.sma(df["close"], length=50)
+            df["SMA_200"] = ta.sma(df["close"], length=200)
             df["EMA_20"] = ta.ema(df["close"], length=20)
+            df["EMA_50"] = ta.ema(df["close"], length=50)
             
             # Momentum
             df["ROC"] = ta.roc(df["close"], length=10)
+            df["MOM"] = ta.mom(df["close"], length=14)
+            
+            # Stochastic Oscillator
+            stoch = ta.stoch(high=df["high"], low=df["low"], close=df["close"], k=14, d=3)
+            df["STOCH_K"] = stoch["STOCHk_14_3_3"]
+            df["STOCH_D"] = stoch["STOCHd_14_3_3"]
+            
+            # Average True Range - volatility
+            df["ATR"] = ta.atr(high=df["high"], low=df["low"], close=df["close"], length=14)
+            
+            # Commodity Channel Index
+            df["CCI"] = ta.cci(high=df["high"], low=df["low"], close=df["close"], length=20)
+            
+            # On-Balance Volume
+            df["OBV"] = ta.obv(close=df["close"], volume=df["volume"])
             
             # Fill NaN values with mean
             df.fillna(df.mean(numeric_only=True), inplace=True)
