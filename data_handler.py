@@ -5,12 +5,28 @@ import pandas as pd
 import pandas_ta as ta
 from datetime import datetime, timedelta
 from sklearn.preprocessing import MinMaxScaler
+from pycoingecko import CoinGeckoAPI
 
 class DataHandler:
     def __init__(self, storage_file="prediction_history.json"):
         """Initialize the DataHandler with storage file path."""
         self.storage_file = storage_file
         self.scaler = MinMaxScaler(feature_range=(0, 1))
+        self.cg = CoinGeckoAPI()
+        
+        # Mapping between user-friendly symbols and CoinGecko IDs
+        self.crypto_mapping = {
+            "BTCUSDT": "bitcoin",
+            "ETHUSDT": "ethereum",
+            "BNBUSDT": "binancecoin",
+            "XRPUSDT": "ripple",
+            "ADAUSDT": "cardano",
+            "SOLUSDT": "solana",
+            "DOGEUSDT": "dogecoin",
+            "DOTUSDT": "polkadot",
+            "AVAXUSDT": "avalanche-2",
+            "LINKUSDT": "chainlink"
+        }
         
         # Create storage file if it doesn't exist
         if not os.path.exists(storage_file):
@@ -18,22 +34,59 @@ class DataHandler:
                 json.dump([], f)
     
     def get_binance_data(self, symbol="BTCUSDT", interval="1d", limit=1000):
-        """Fetch cryptocurrency data from Binance API."""
+        """Fetch cryptocurrency data using CoinGecko API instead of Binance."""
         try:
-            url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
-            data = requests.get(url).json()
+            # Convert Binance symbol format to CoinGecko ID
+            if symbol in self.crypto_mapping:
+                coin_id = self.crypto_mapping[symbol]
+            else:
+                print(f"Unknown symbol: {symbol}")
+                return None
             
-            df = pd.DataFrame(data, columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume', 
-                '_', '_', '_', '_', '_', '_'
-            ])
+            # Convert interval to days
+            days = 1
+            if interval == "1d":
+                days = min(limit, 365)  # Max 1 year
+            elif interval == "1h":
+                days = min(limit // 24, 90)  # Max 90 days for hourly data
+            else:
+                days = 30  # Default to 30 days
+                
+            # Get market data from CoinGecko
+            coin_data = self.cg.get_coin_market_chart_by_id(
+                id=coin_id,
+                vs_currency='usd',
+                days=days,
+                interval='daily' if interval == '1d' else None
+            )
             
-            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].astype(float)
+            # Convert to Pandas DataFrame
+            prices = coin_data['prices']
+            volumes = coin_data['total_volumes']
+            
+            # Create DataFrame with timestamp and price
+            df = pd.DataFrame(prices, columns=['timestamp', 'close'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            
+            # Add volumes
+            volume_df = pd.DataFrame(volumes, columns=['timestamp', 'volume'])
+            volume_df['timestamp'] = pd.to_datetime(volume_df['timestamp'], unit='ms')
+            
+            # Merge price and volume data
+            df = df.merge(volume_df, on='timestamp', how='inner')
+            
+            # For simplicity, set the same value for open, high, low as close
+            # In a real app, you'd want high-resolution OHLC data
+            df['open'] = df['close']
+            df['high'] = df['close'] * 1.005  # Simulate slightly higher
+            df['low'] = df['close'] * 0.995   # Simulate slightly lower
+            
+            # Reorder columns to match Binance format
+            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume']]
             
             return df
         except Exception as e:
-            print(f"Error fetching data from Binance: {e}")
+            print(f"Error fetching data from CoinGecko: {e}")
             return None
     
     def calculate_technical_indicators(self, df):

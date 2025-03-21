@@ -8,7 +8,7 @@ from crypto_predictor import CryptoPredictor
 
 # Set page config
 st.set_page_config(
-    page_title="Crypto Price Predictor",
+    page_title="Kripto Fiyat Tahmini",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -22,11 +22,11 @@ def get_predictor():
 predictor = get_predictor()
 
 # App title
-st.title("📈 Cryptocurrency Price Predictor")
-st.markdown("### With Feedback Loop Learning System")
+st.title("📈 Kripto Para Fiyat Tahmincisi")
+st.markdown("### Geri Bildirim Döngüsü Öğrenme Sistemi İle")
 
 # Sidebar for configuration
-st.sidebar.header("Configuration")
+st.sidebar.header("Ayarlar")
 
 # Cryptocurrency selection
 crypto_options = {
@@ -41,36 +41,36 @@ crypto_options = {
     "Avalanche": "AVAXUSDT",
     "Chainlink": "LINKUSDT"
 }
-selected_crypto_name = st.sidebar.selectbox("Select Cryptocurrency", list(crypto_options.keys()))
+selected_crypto_name = st.sidebar.selectbox("Kripto Para Seçin", list(crypto_options.keys()))
 selected_crypto = crypto_options[selected_crypto_name]
 
 # Time interval selection
 interval_options = {
-    "1 Minute": "1m",
-    "5 Minutes": "5m",
-    "15 Minutes": "15m",
-    "30 Minutes": "30m",
-    "1 Hour": "1h",
-    "4 Hours": "4h",
-    "1 Day": "1d",
-    "1 Week": "1w"
+    "1 Dakika": "1m",
+    "5 Dakika": "5m",
+    "15 Dakika": "15m",
+    "30 Dakika": "30m",
+    "1 Saat": "1h",
+    "4 Saat": "4h",
+    "1 Gün": "1d",
+    "1 Hafta": "1w"
 }
-selected_interval_name = st.sidebar.selectbox("Select Time Interval", list(interval_options.keys()))
+selected_interval_name = st.sidebar.selectbox("Zaman Aralığı Seçin", list(interval_options.keys()))
 selected_interval = interval_options[selected_interval_name]
 
 # Historical data limit
 limit_options = {
-    "100 data points": 100,
-    "200 data points": 200,
-    "500 data points": 500,
-    "1000 data points": 1000
+    "100 veri noktası": 100,
+    "200 veri noktası": 200,
+    "500 veri noktası": 500,
+    "1000 veri noktası": 1000
 }
-selected_limit_name = st.sidebar.selectbox("Select Data Amount", list(limit_options.keys()))
+selected_limit_name = st.sidebar.selectbox("Veri Miktarı Seçin", list(limit_options.keys()))
 selected_limit = limit_options[selected_limit_name]
 
 # Button to fetch data and make prediction
-if st.sidebar.button("Fetch Data & Predict"):
-    with st.spinner("Fetching and processing cryptocurrency data..."):
+if st.sidebar.button("Veri Çek ve Tahmin Et"):
+    with st.spinner("Kripto para verileri alınıyor ve işleniyor..."):
         # Fetch and process data
         df = predictor.fetch_and_process_data(selected_crypto, selected_interval, selected_limit)
         
@@ -80,11 +80,11 @@ if st.sidebar.button("Fetch Data & Predict"):
             st.session_state['last_updated'] = datetime.now()
             
             # Train model
-            with st.spinner("Training prediction model..."):
+            with st.spinner("Tahmin modeli eğitiliyor..."):
                 predictor.train_prediction_model(df)
             
             # Make predictions
-            with st.spinner("Generating predictions..."):
+            with st.spinner("Tahminler oluşturuluyor..."):
                 hourly_pred, daily_pred = predictor.make_predictions(df, selected_crypto)
                 
                 if hourly_pred is not None and daily_pred is not None:
@@ -92,28 +92,28 @@ if st.sidebar.button("Fetch Data & Predict"):
                     st.session_state['daily_pred'] = daily_pred
                     st.session_state['has_prediction'] = True
                 else:
-                    st.error("Failed to generate predictions. Please try again.")
+                    st.error("Tahminler oluşturulamadı. Lütfen tekrar deneyin.")
         else:
-            st.error("Failed to fetch data. Please check your network connection or try a different cryptocurrency.")
+            st.error("Veri alınamadı. Lütfen internet bağlantınızı kontrol edin veya başka bir kripto para deneyin.")
 
 # Auto refresh data toggle
-auto_refresh = st.sidebar.checkbox("Auto-refresh data", value=False)
-refresh_interval = st.sidebar.slider("Refresh interval (minutes)", 1, 60, 5)
+auto_refresh = st.sidebar.checkbox("Otomatik veri yenileme", value=False)
+refresh_interval = st.sidebar.slider("Yenileme aralığı (dakika)", 1, 60, 5)
 
 # Explanation section
-with st.sidebar.expander("About the Feedback Loop"):
+with st.sidebar.expander("Geri Bildirim Döngüsü Hakkında"):
     st.markdown("""
-    The prediction model improves over time by comparing past predictions with actual prices.
+    Tahmin modeli, geçmiş tahminleri gerçek fiyatlarla karşılaştırarak zamanla iyileşir.
     
-    **How it works:**
-    1. Make price predictions
-    2. Store predictions with timestamps
-    3. Retrieve actual prices when they become available
-    4. Calculate prediction accuracy
-    5. Adjust the model based on historical accuracy
-    6. Use improved model for future predictions
+    **Nasıl çalışır:**
+    1. Fiyat tahminleri yapılır
+    2. Tahminler zaman damgalarıyla saklanır
+    3. Gerçek fiyatlar mevcut olduğunda alınır
+    4. Tahmin doğruluğu hesaplanır
+    5. Model geçmiş doğruluğa göre ayarlanır
+    6. Gelecek tahminler için iyileştirilmiş model kullanılır
     
-    This creates a continuous learning cycle that improves prediction accuracy over time.
+    Bu, tahmin doğruluğunu zamanla artıran sürekli bir öğrenme döngüsü oluşturur.
     """)
 
 # Main content area
@@ -121,7 +121,7 @@ col1, col2 = st.columns([2, 1])
 
 with col1:
     # Display price chart
-    st.subheader("Price Chart & Predictions")
+    st.subheader("Fiyat Grafiği ve Tahminler")
     
     if 'df' in st.session_state and 'has_prediction' in st.session_state and st.session_state['has_prediction']:
         # Create visualization
@@ -134,19 +134,19 @@ with col1:
         if fig is not None:
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.warning("Failed to create visualization.")
+            st.warning("Görselleştirme oluşturulamadı.")
     else:
-        st.info("Please fetch data to see the price chart and predictions.")
+        st.info("Fiyat grafiği ve tahminleri görmek için lütfen veri çekin.")
 
 with col2:
     # Display current data and predictions
-    st.subheader("Current Data & Predictions")
+    st.subheader("Güncel Veri ve Tahminler")
     
     if 'df' in st.session_state and 'has_prediction' in st.session_state and st.session_state['has_prediction']:
         # Display current price
         current_price = st.session_state['df']['close'].iloc[-1]
         st.metric(
-            label=f"Current {selected_crypto_name} Price",
+            label=f"Güncel {selected_crypto_name} Fiyatı",
             value=f"${current_price:.2f}"
         )
         
@@ -154,7 +154,7 @@ with col2:
         hourly_pred = st.session_state['hourly_pred']
         hourly_change = (hourly_pred - current_price) / current_price * 100
         st.metric(
-            label="1 Hour Prediction",
+            label="1 Saat Tahmini",
             value=f"${hourly_pred:.2f}",
             delta=f"{hourly_change:.2f}%"
         )
@@ -163,16 +163,16 @@ with col2:
         daily_pred = st.session_state['daily_pred']
         daily_change = (daily_pred - current_price) / current_price * 100
         st.metric(
-            label="24 Hour Prediction",
+            label="24 Saat Tahmini",
             value=f"${daily_pred:.2f}",
             delta=f"{daily_change:.2f}%"
         )
         
         # Display last updated time
         if 'last_updated' in st.session_state:
-            st.text(f"Last updated: {st.session_state['last_updated'].strftime('%Y-%m-%d %H:%M:%S')}")
+            st.text(f"Son güncelleme: {st.session_state['last_updated'].strftime('%Y-%m-%d %H:%M:%S')}")
     else:
-        st.info("Please fetch data to see the current price and predictions.")
+        st.info("Güncel fiyat ve tahminleri görmek için lütfen veri çekin.")
 
 # Technical indicators tab
 st.subheader("Technical Indicators")
