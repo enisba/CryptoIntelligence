@@ -20,16 +20,23 @@ class PredictionModel:
         try:
             # Features to use for prediction
             features = [
-                'close', 'volume', 'RSI', 'MACD', 'MACD_signal', 'MACD_hist',
-                'BB_high', 'BB_mid', 'BB_low', 'SMA_20', 'EMA_20', 'ROC'
+                'close', 'volume', 
+                'RSI_14', 'RSI_7', 'RSI_28',
+                'MACD', 'MACD_signal', 'MACD_hist',
+                'BB_high', 'BB_mid', 'BB_low', 
+                'SMA_20', 'SMA_50', 'SMA_200',
+                'EMA_20', 'EMA_50', 
+                'ROC', 'MOM',
+                'STOCH_K', 'STOCH_D',
+                'ATR', 'CCI', 'OBV'
             ]
             
             # Check if all features exist in dataframe
             for feature in features:
                 if feature not in df.columns:
                     print(f"Warning: {feature} not found in dataframe")
-                    if feature in ['RSI', 'MACD', 'MACD_signal', 'MACD_hist', 'BB_high', 'BB_mid', 'BB_low', 'SMA_20', 'EMA_20', 'ROC']:
-                        df[feature] = 0  # Add dummy feature
+                    # Add dummy feature for missing ones
+                    df[feature] = 0
             
             # Filter only needed features
             available_features = [f for f in features if f in df.columns]
@@ -165,8 +172,8 @@ class PredictionModel:
             daily_prediction = last_price * (1 + avg_daily_change)      # Daily change
             
             # Consider RSI for overbought/oversold conditions
-            if 'RSI' in df.columns:
-                rsi = df['RSI'].iloc[-1]
+            if 'RSI_14' in df.columns:
+                rsi = df['RSI_14'].iloc[-1]
                 if rsi > 70:  # Overbought
                     hourly_prediction *= 0.998
                     daily_prediction *= 0.995
