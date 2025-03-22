@@ -1,7 +1,13 @@
 import streamlit as st
+st.set_page_config(
+    page_title="Kripto Fiyat Tahmini",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 import pandas as pd
 import numpy as np
-st.write("✅ App başlatıldı!")
 import time
 import requests
 from datetime import datetime, timedelta
@@ -9,12 +15,6 @@ import plotly.graph_objects as go
 from crypto_predictor import CryptoPredictor
 
 # Set page config
-st.set_page_config(
-    page_title="Kripto Fiyat Tahmini",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Initialize predictor
 @st.cache_resource
