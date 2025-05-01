@@ -18,7 +18,6 @@ class PredictionModel:
             return None
         
         try:
-            # Features to use for prediction
             features = [
                 'close', 'volume', 
                 'RSI_14', 'RSI_7', 'RSI_28',
@@ -31,18 +30,14 @@ class PredictionModel:
                 'ATR', 'CCI', 'OBV'
             ]
             
-            # Check if all features exist in dataframe
             for feature in features:
                 if feature not in df.columns:
                     print(f"Warning: {feature} not found in dataframe")
-                    # Add dummy feature for missing ones
                     df[feature] = 0
             
-            # Filter only needed features
             available_features = [f for f in features if f in df.columns]
             df_features = df[available_features].copy()
             
-            # Scale features
             df_scaled = self.scaler.fit_transform(df_features)
             
             return df_scaled
@@ -61,37 +56,29 @@ class PredictionModel:
             if df_scaled is None:
                 return False
             
-            # Create sequences for time series prediction
             X, y_hourly, y_daily = [], [], []
             
-            # Use 30 time steps to predict the next price
             sequence_length = 30
             
-            for i in range(len(df_scaled) - sequence_length - 24):  # -24 to allow for daily prediction
+            for i in range(len(df_scaled) - sequence_length - 24):
                 X.append(df_scaled[i:i+sequence_length])
-                # Target for hourly prediction (next time step)
                 y_hourly.append(df['close'].iloc[i+sequence_length])
-                # Target for daily prediction (24 time steps ahead for daily data)
                 y_daily.append(df['close'].iloc[i+sequence_length+24])
             
             X = np.array(X)
             y_hourly = np.array(y_hourly)
             y_daily = np.array(y_daily)
             
-            # Reshape X for Random Forest (which expects 2D input)
             X_reshaped = X.reshape(X.shape[0], -1)
             
-            # Split data
             X_train, X_test, y_hourly_train, y_hourly_test = train_test_split(
                 X_reshaped, y_hourly, test_size=0.2, random_state=42)
             _, _, y_daily_train, y_daily_test = train_test_split(
                 X_reshaped, y_daily, test_size=0.2, random_state=42)
             
-            # Train models
             self.model_hourly.fit(X_train, y_hourly_train)
             self.model_daily.fit(X_train, y_daily_train)
             
-            # Calculate training accuracy
             hourly_score = self.model_hourly.score(X_test, y_hourly_test)
             daily_score = self.model_daily.score(X_test, y_daily_test)
             
@@ -116,28 +103,23 @@ class PredictionModel:
             
             if not self.is_trained:
                 print("Warning: Model not trained, using simple estimation")
-                # Simple estimation based on last 30 days trend
                 last_30_close = df['close'].iloc[-30:].values
                 growth_rate = (last_30_close[-1] / last_30_close[0]) ** (1/30) - 1
                 
-                hourly_prediction = last_30_close[-1] * (1 + growth_rate/24)  # Hourly growth rate
-                daily_prediction = last_30_close[-1] * (1 + growth_rate)      # Daily growth rate
+                hourly_prediction = last_30_close[-1] * (1 + growth_rate/24)  
+                daily_prediction = last_30_close[-1] * (1 + growth_rate)     
                 
-                # Apply scaling factors from feedback loop
                 hourly_prediction *= hourly_scaling
                 daily_prediction *= daily_scaling
                 
                 return hourly_prediction, daily_prediction
             
-            # Use the last sequence_length data points for prediction
             sequence_length = 30
             X_live = df_scaled[-sequence_length:].reshape(1, -1)
             
-            # Make predictions
             hourly_prediction = self.model_hourly.predict(X_live)[0]
             daily_prediction = self.model_daily.predict(X_live)[0]
             
-            # Apply scaling factors from feedback loop
             hourly_prediction *= hourly_scaling
             daily_prediction *= daily_scaling
             
@@ -146,7 +128,7 @@ class PredictionModel:
         except Exception as e:
             print(f"Error predicting prices: {e}")
             last_close = df['close'].iloc[-1]
-            return last_close * 1.002, last_close * 1.01  # Fallback values
+            return last_close * 1.002, last_close * 1.01 
     
     def predict_with_simple_model(self, df, hourly_scaling=1.0, daily_scaling=1.0):
         """Make simple predictions based on recent trends."""
@@ -155,44 +137,38 @@ class PredictionModel:
             return None, None
         
         try:
-            # Calculate simple trend
             recent_data = df.tail(30)
             close_values = recent_data['close'].values
             
-            # Calculate average daily percentage change
             daily_changes = []
             for i in range(1, len(close_values)):
                 daily_changes.append(close_values[i] / close_values[i-1] - 1)
             
             avg_daily_change = np.mean(daily_changes) if daily_changes else 0.01
             
-            # Make predictions
             last_price = df['close'].iloc[-1]
-            hourly_prediction = last_price * (1 + avg_daily_change/24)  # Hourly change
-            daily_prediction = last_price * (1 + avg_daily_change)      # Daily change
+            hourly_prediction = last_price * (1 + avg_daily_change/24)
+            daily_prediction = last_price * (1 + avg_daily_change)    
             
-            # Consider RSI for overbought/oversold conditions
             if 'RSI_14' in df.columns:
                 rsi = df['RSI_14'].iloc[-1]
-                if rsi > 70:  # Overbought
+                if rsi > 70: 
                     hourly_prediction *= 0.998
                     daily_prediction *= 0.995
-                elif rsi < 30:  # Oversold
+                elif rsi < 30:  
                     hourly_prediction *= 1.002
                     daily_prediction *= 1.005
             
-            # Consider MACD trend
             if 'MACD' in df.columns and 'MACD_signal' in df.columns:
                 macd = df['MACD'].iloc[-1]
                 signal = df['MACD_signal'].iloc[-1]
-                if macd > signal:  # Bullish
+                if macd > signal: 
                     hourly_prediction *= 1.001
                     daily_prediction *= 1.002
-                else:  # Bearish
+                else:
                     hourly_prediction *= 0.999
                     daily_prediction *= 0.998
             
-            # Apply scaling factors from feedback loop
             hourly_prediction *= hourly_scaling
             daily_prediction *= daily_scaling
             

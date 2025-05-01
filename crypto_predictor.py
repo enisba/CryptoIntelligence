@@ -14,13 +14,11 @@ class CryptoPredictor:
     
     def fetch_and_process_data(self, symbol="BTCUSDT", interval="1d", limit=1000):
         """Fetch and process cryptocurrency data."""
-        # Fetch data from Binance
         df = self.data_handler.get_binance_data(symbol, interval, limit)
         
         if df is None or df.empty:
             return None
         
-        # Calculate technical indicators
         df = self.data_handler.calculate_technical_indicators(df)
         
         return df
@@ -34,20 +32,15 @@ class CryptoPredictor:
         if df is None or df.empty:
             return None, None
         
-        # Update actual prices for previous predictions
         self.data_handler.update_actual_prices(symbol)
         
-        # Get scaling factors based on previous prediction accuracy
         hourly_scaling, daily_scaling = self.data_handler.get_scaling_factors(symbol)
         
-        # Make predictions
         hourly_pred, daily_pred = self.model.predict_next_prices(df, hourly_scaling, daily_scaling)
         
-        # If model-based prediction fails, use simple model
         if hourly_pred is None or daily_pred is None:
             hourly_pred, daily_pred = self.model.predict_with_simple_model(df, hourly_scaling, daily_scaling)
         
-        # Save prediction
         current_time = datetime.now()
         current_price = float(df['close'].iloc[-1])
         self.data_handler.save_prediction(symbol, current_time, current_price, hourly_pred, daily_pred)
